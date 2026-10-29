@@ -68,6 +68,26 @@ class LayananOpenMeteo {
     };
   }
 
+  // Ambil histori AQI + PM2.5 untuk N hari ke belakang.
+  Future<Map<String, dynamic>> ambilHistori({
+    required double lintang,
+    required double bujur,
+    required int hariKeBelakang,
+  }) async {
+    final Object? json = await _ambil({
+      'latitude': '$lintang',
+      'longitude': '$bujur',
+      'hourly': 'us_aqi,pm2_5',
+      'past_days': '$hariKeBelakang',
+      'forecast_days': '0', // hanya histori, tanpa prakiraan
+      'timezone': 'auto',
+    });
+    return switch (json) {
+      final Map<String, dynamic> data => data,
+      _ => throw const FormatException('Bentuk JSON histori tidak dikenal'),
+    };
+  }
+
   Future<Object?> _ambil(Map<String, String> parameter) async {
     final Uri alamat = Uri.https(
       'air-quality-api.open-meteo.com',

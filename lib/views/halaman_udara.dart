@@ -179,13 +179,21 @@ class IsiUdara extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       children: [
-        KartuIndeks(udara: udara, diperbarui: diperbarui),
+                KartuIndeks(udara: udara, diperbarui: diperbarui),
         judul('24 jam ke depan'),
         GrafikPerJam(perJam: udara.perJam),
         const SizedBox(height: 16),
         KartuUv(saatIni: udara.saatIni.uv, perJam: udara.perJam),
         judul('Polutan', 'Ketuk untuk melihat sumber dan dampaknya.'),
         DaftarPolutan(saatIni: udara.saatIni),
+
+        // Riwayat Telemetri (garis)
+        judul(
+          'Riwayat Telemetri',
+          'Fluktuasi AQI 24 jam hingga 7 hari terakhir.',
+        ),
+        const RiwayatTelemetri(),
+
         judul(
           'Se-Kalimantan Timur',
           'Dari yang terbersih. Ketuk untuk melihat detail wilayah.',

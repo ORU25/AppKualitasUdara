@@ -6,6 +6,7 @@ import 'package:app_kualitas_udara/services/layanan_open_meteo.dart';
 abstract class RepositoriUdara {
   Future<Udara> ambil(Kota kota);
   Future<List<RingkasanKota>> ambilSemua();
+  Future<List<TitikRiwayat>> ambilRiwayat(Kota kota, RentangRiwayat rentang);
 }
 
 class RepositoriUdaraOpenMeteo implements RepositoriUdara {
@@ -71,6 +72,43 @@ class RepositoriUdaraOpenMeteo implements RepositoriUdara {
       );
     }
     throw const FormatException('Bentuk data udara saat ini salah');
+  }
+
+  @override
+  Future<List<TitikRiwayat>> ambilRiwayat(
+    Kota kota,
+    RentangRiwayat rentang,
+  ) async {
+    final int hari = rentang.durasi.inDays.ceil();
+    final Map<String, dynamic> json = await _layanan.ambilHistori(
+      lintang: kota.lintang,
+      bujur: kota.bujur,
+      hariKeBelakang: hari,
+    );
+    if (json case {
+      'hourly': {
+        'time': final List<dynamic> jam,
+        'us_aqi': final List<dynamic> aqi,
+        'pm2_5': final List<dynamic> pm,
+      },
+    }) {
+      if (aqi.length != jam.length || pm.length != jam.length) {
+        throw const FormatException('Panjang data histori tidak sama');
+      }
+      final DateTime batas = DateTime.now().subtract(rentang.durasi);
+      final List<TitikRiwayat> hasil = [];
+      for (int i = 0; i < jam.length; i++) {
+        final DateTime w = DateTime.parse(jam[i] as String);
+        if (w.isBefore(batas)) continue;
+        hasil.add(TitikRiwayat(
+          waktu: w,
+          aqi: (aqi[i] as num?)?.round(),
+          pm25: (pm[i] as num?)?.toDouble(),
+        ));
+      }
+      return hasil;
+    }
+    throw const FormatException('Bentuk data histori tidak sesuai');
   }
 
   // Data per jam berbentuk "array sejajar": time[i], us_aqi[i], dan

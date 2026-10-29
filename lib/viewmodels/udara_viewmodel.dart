@@ -38,12 +38,22 @@ class UdaraViewModel extends ChangeNotifier {
   int _nomorPermintaan = 0;
   bool _sudahDibuang = false;
 
+  // state riwayat telemetri
+  RentangRiwayat _rentangRiwayat = RentangRiwayat.jam24;
+  List<TitikRiwayat> _riwayat = const [];
+  bool _memuatRiwayat = false;
+
   Kota get kota => _kota;
   StatusMuat get status => _status;
   Udara? get udara => _udara;
   List<RingkasanKota> get peringkat => _peringkat;
   DateTime? get diperbarui => _diperbarui;
   String get pesanGalat => _pesanGalat;
+
+  // getter riwayat
+  RentangRiwayat get rentangRiwayat => _rentangRiwayat;
+  List<TitikRiwayat> get riwayat => _riwayat;
+  bool get memuatRiwayat => _memuatRiwayat;
 
   // tampilkanMemuat: false saat ditarik untuk menyegarkan, karena
   // RefreshIndicator sudah menampilkan lingkarannya sendiri.
@@ -68,6 +78,9 @@ class UdaraViewModel extends ChangeNotifier {
       _peringkat = hasil[1] as List<RingkasanKota>;
       _diperbarui = DateTime.now();
       _status = StatusMuat.berhasil;
+
+      // muat riwayat setelah data utama berhasil
+      unawaited(muatRiwayat());
     } catch (galat) {
       if (_sudahDibuang || nomor != _nomorPermintaan) {
         return;
@@ -87,6 +100,30 @@ class UdaraViewModel extends ChangeNotifier {
     }
     _kota = kota;
     muat();
+  }
+
+  // muat & pilih rentang riwayat
+  Future<void> muatRiwayat() async {
+    _memuatRiwayat = true;
+    notifyListeners();
+    try {
+      final List<TitikRiwayat> hasil =
+          await _repositori.ambilRiwayat(_kota, _rentangRiwayat);
+      if (_sudahDibuang) return;
+      _riwayat = hasil;
+    } catch (galat) {
+      debugPrint('Galat saat memuat riwayat: $galat');
+      _riwayat = const [];
+    }
+    if (_sudahDibuang) return;
+    _memuatRiwayat = false;
+    notifyListeners();
+  }
+
+  void pilihRentang(RentangRiwayat r) {
+    if (r == _rentangRiwayat) return;
+    _rentangRiwayat = r;
+    muatRiwayat();
   }
 
   @override
