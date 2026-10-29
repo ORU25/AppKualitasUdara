@@ -774,3 +774,442 @@ class ArtiKategori extends StatelessWidget {
     );
   }
 }
+
+class RiwayatTelemetri extends StatefulWidget {
+  const RiwayatTelemetri({super.key});
+
+  @override
+  State<RiwayatTelemetri> createState() => _RiwayatTelemetriState();
+}
+
+class _RiwayatTelemetriState extends State<RiwayatTelemetri> {
+  // Indeks titik yang sedang di-hover/ditekan (null = tidak ada).
+  int? _sorot;
+
+  @override
+  Widget build(BuildContext context) {
+    final UdaraViewModel vm = context.watch<UdaraViewModel>();
+    final ColorScheme warna = Theme.of(context).colorScheme;
+    final TextTheme gayaTeks = Theme.of(context).textTheme;
+
+    final List<TitikRiwayat> data = vm.riwayat
+        .where((TitikRiwayat t) => t.aqi != null)
+        .toList();
+
+    // Statistik ringkas.
+    int? terendah;
+    int? tertinggi;
+    String? jamTerendah;
+    String? jamTertinggi;
+    double jumlah = 0;
+    for (final TitikRiwayat t in data) {
+      final int a = t.aqi!;
+      if (terendah == null || a < terendah) {
+        terendah = a;
+        jamTerendah = jamMenit(t.waktu);
+      }
+      if (tertinggi == null || a > tertinggi) {
+        tertinggi = a;
+        jamTertinggi = jamMenit(t.waktu);
+      }
+      jumlah += a;
+    }
+    final int? rata = data.isEmpty ? null : (jumlah / data.length).round();
+    final int skala = (tertinggi ?? 100) < 100 ? 100 : tertinggi!;
+
+    Widget kartuStatistik(
+      String label,
+      String nilai,
+      String ket,
+      Color warnaTeks,
+    ) {
+      return Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: gayaTeks.labelSmall?.copyWith(
+                color: warna.onSurfaceVariant,
+              ),
+            ),
+            Text(
+              nilai,
+              style: gayaTeks.titleMedium?.copyWith(
+                color: warnaTeks,
+                fontFeatures: angkaTabular,
+              ),
+            ),
+            Text(
+              ket,
+              style: gayaTeks.labelSmall?.copyWith(
+                color: warna.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Titik yang sedang disorot (untuk tooltip di atas grafik).
+    final TitikRiwayat? sorot =
+        (_sorot != null && _sorot! >= 0 && _sorot! < data.length)
+        ? data[_sorot!]
+        : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Pemilih rentang.
+                // Pemilih rentang: lebar tiap segmen dipaksa sama.
+        SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<RentangRiwayat>(
+            showSelectedIcon: false, // hilangkan ikon centang (penyebab lebar beda)
+            style: ButtonStyle(
+              // Lebar minimum seragam, teks di tengah.
+              minimumSize: WidgetStateProperty.all(
+                const Size(0, 40),
+              ),
+              padding: WidgetStateProperty.all(
+                const EdgeInsets.symmetric(horizontal: 4),
+              ),
+            ),
+            segments: [
+              for (final RentangRiwayat r in RentangRiwayat.values)
+                ButtonSegment<RentangRiwayat>(
+                  value: r,
+                  label: SizedBox(
+                    // Lebar tetap per label -> ketiga segmen identik.
+                    width: 64,
+                    child: Text(r.label, textAlign: TextAlign.center),
+                  ),
+                ),
+            ],
+            selected: {vm.rentangRiwayat},
+            onSelectionChanged: (Set<RentangRiwayat> s) {
+              setState(() => _sorot = null);
+              context.read<UdaraViewModel>().pilihRentang(s.first);
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (vm.memuatRiwayat && data.isEmpty)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(),
+            ),
+          )
+        else if (data.isEmpty)
+          Text(
+            'Data riwayat belum tersedia.',
+            style: gayaTeks.bodyMedium,
+          )
+        else ...[
+          // Kartu statistik terendah / rata-rata / tertinggi.
+          Row(
+            children: [
+              kartuStatistik(
+                'Terendah',
+                '$terendah',
+                '${jamTerendah ?? "–"} WITA',
+                Kategori.dariAqi(terendah!).warna,
+              ),
+              kartuStatistik(
+                'Rata-rata',
+                '$rata',
+                Kategori.dariAqi(rata!).label,
+                warna.onSurface,
+              ),
+              kartuStatistik(
+                'Tertinggi',
+                '$tertinggi',
+                '${jamTertinggi ?? "–"} WITA',
+                Kategori.dariAqi(tertinggi!).warna,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Tooltip di atas grafik saat ada titik disorot.
+          SizedBox(
+            height: 52,
+            child: sorot == null
+                ? const SizedBox.shrink()
+                : Align(
+                    alignment: Alignment.centerLeft,
+                    child: _TooltipRiwayat(
+                      titik: sorot,
+                      warna: warna,
+                      gayaTeks: gayaTeks,
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 4),
+
+          // Grafik garis interaktif.
+          SizedBox(
+            height: 160,
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints ukuran) {
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: (TapDownDetails d) => _pilih(
+                    d.localPosition.dx,
+                    ukuran.maxWidth,
+                    data.length,
+                  ),
+                  onHorizontalDragUpdate: (DragUpdateDetails d) => _pilih(
+                    d.localPosition.dx,
+                    ukuran.maxWidth,
+                    data.length,
+                  ),
+                  onHorizontalDragEnd: (_) =>
+                      setState(() => _sorot = null),
+                  onTapUp: (_) =>
+                      Future<void>.delayed(
+                        const Duration(seconds: 3),
+                        () {
+                          if (mounted) setState(() => _sorot = null);
+                        },
+                      ),
+                  child: CustomPaint(
+                    painter: _PelukisGaris(
+                      data: data,
+                      skala: skala,
+                      sorot: _sorot,
+                      warnaGaris: warna.primary,
+                      warnaGrid: warna.outlineVariant,
+                      warnaSorot: warna.onSurface,
+                      warnaTitik: [
+                        for (final TitikRiwayat t in data)
+                          Kategori.dariAqi(t.aqi!).warna,
+                      ],
+                    ),
+                    size: Size.infinite,
+                  ),
+                );
+              },
+            ),
+          ),
+          Divider(height: 1, color: warna.outlineVariant),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${vm.rentangRiwayat.label} lalu',
+                style: gayaTeks.labelSmall?.copyWith(
+                  color: warna.onSurfaceVariant,
+                ),
+              ),
+              Text(
+                'Sekarang',
+                style: gayaTeks.labelSmall?.copyWith(
+                  color: warna.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Ketuk atau geser di atas grafik untuk melihat detail per jam. '
+            'Riwayat dari model CAMS (Open-Meteo), bukan pengukuran sensor.',
+            style: gayaTeks.labelSmall?.copyWith(
+              color: warna.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // Ubah posisi X (piksel) menjadi indeks titik terdekat.
+  void _pilih(double x, double lebar, int jumlah) {
+    if (jumlah <= 1 || lebar <= 0) return;
+    final double rasio = (x / lebar).clamp(0.0, 1.0);
+    final int idx = (rasio * (jumlah - 1)).round();
+    if (idx != _sorot) setState(() => _sorot = idx);
+  }
+}
+
+// Tooltip kecil di atas grafik.
+class _TooltipRiwayat extends StatelessWidget {
+  const _TooltipRiwayat({
+    required this.titik,
+    required this.warna,
+    required this.gayaTeks,
+  });
+
+  final TitikRiwayat titik;
+  final ColorScheme warna;
+  final TextTheme gayaTeks;
+
+  @override
+  Widget build(BuildContext context) {
+    final Kategori k = Kategori.dariAqi(titik.aqi!);
+    return Container(
+      // Lebar dibatasi + tinggi tetap agar tidak menggeser grafik.
+      constraints: const BoxConstraints(maxWidth: 280, minHeight: 44),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: warna.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: k.warna, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '${jamMenit(titik.waktu)} · AQI ${titik.aqi}',
+            style: gayaTeks.labelLarge?.copyWith(
+              fontFeatures: angkaTabular,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              k.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: gayaTeks.labelSmall?.copyWith(
+                color: warna.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Pelukis grafik: garis, area di bawahnya, titik per jam, penanda sorot.
+class _PelukisGaris extends CustomPainter {
+  _PelukisGaris({
+    required this.data,
+    required this.skala,
+    required this.sorot,
+    required this.warnaGaris,
+    required this.warnaGrid,
+    required this.warnaSorot,
+    required this.warnaTitik,
+  });
+
+  final List<TitikRiwayat> data;
+  final int skala;
+  final int? sorot;
+  final Color warnaGaris;
+  final Color warnaGrid;
+  final Color warnaSorot;
+  final List<Color> warnaTitik;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.isEmpty) return;
+
+    const double paddingAtas = 6;
+    const double paddingBawah = 6;
+    final double tinggiPlot = size.height - paddingAtas - paddingBawah;
+
+    // Posisi X untuk setiap titik (rata).
+    double xUntuk(int i) =>
+        data.length == 1 ? size.width / 2 : i * size.width / (data.length - 1);
+    // Posisi Y: AQI 0 di bawah, skala di atas.
+    double yUntuk(int aqi) =>
+        paddingAtas + tinggiPlot * (1 - (aqi / skala).clamp(0.0, 1.0));
+
+    // Garis bantu horizontal (0, 1/2, penuh).
+    final Paint kuasGrid = Paint()
+      ..color = warnaGrid.withValues(alpha: 0.6)
+      ..strokeWidth = 1;
+    for (final double rasio in [0.0, 0.5, 1.0]) {
+      final double y = paddingAtas + tinggiPlot * rasio;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), kuasGrid);
+    }
+
+    // Bangun path garis.
+    final Path garis = Path();
+    for (int i = 0; i < data.length; i++) {
+      final Offset p = Offset(xUntuk(i), yUntuk(data[i].aqi!));
+      if (i == 0) {
+        garis.moveTo(p.dx, p.dy);
+      } else {
+        garis.lineTo(p.dx, p.dy);
+      }
+    }
+
+    // Area di bawah garis (gradien tipis).
+    final Path area = Path.from(garis)
+      ..lineTo(size.width, size.height - paddingBawah)
+      ..lineTo(0, size.height - paddingBawah)
+      ..close();
+    canvas.drawPath(
+      area,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            warnaGaris.withValues(alpha: 0.25),
+            warnaGaris.withValues(alpha: 0.0),
+          ],
+        ).createShader(
+          Rect.fromLTWH(0, paddingAtas, size.width, tinggiPlot),
+        ),
+    );
+
+    // Garis utama.
+    canvas.drawPath(
+      garis,
+      Paint()
+        ..color = warnaGaris
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2
+        ..strokeJoin = StrokeJoin.round
+        ..strokeCap = StrokeCap.round,
+    );
+
+    // Titik per jam: warna kategori, ukuran kecil; jika disorot, lebih besar.
+    for (int i = 0; i < data.length; i++) {
+      final Offset p = Offset(xUntuk(i), yUntuk(data[i].aqi!));
+      final bool aktif = i == sorot;
+      canvas.drawCircle(
+        p,
+        aktif ? 6 : 2.5,
+        Paint()..color = warnaTitik[i],
+      );
+      if (aktif) {
+        canvas.drawCircle(
+          p,
+          6,
+          Paint()
+            ..color = warnaSorot
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2,
+        );
+        // Garis vertikal penanda.
+        canvas.drawLine(
+          Offset(p.dx, paddingAtas),
+          Offset(p.dx, size.height - paddingBawah),
+          Paint()
+            ..color = warnaSorot.withValues(alpha: 0.4)
+            ..strokeWidth = 1,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PelukisGaris old) {
+    return old.data != data ||
+        old.skala != skala ||
+        old.sorot != sorot ||
+        old.warnaGaris != warnaGaris;
+  }
+}

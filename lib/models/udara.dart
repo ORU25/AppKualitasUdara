@@ -245,3 +245,25 @@ class RingkasanKota {
   final Kota kota;
   final int? aqi;
 }
+
+// ==== RIWAYAT TELEMETRI ====
+
+enum RentangRiwayat {
+  jam24('24 jam', Duration(hours: 24), 24),
+  hari3('3 hari', Duration(days: 3), 36),
+  hari7('7 hari', Duration(days: 7), 56);
+
+  const RentangRiwayat(this.label, this.durasi, this.jumlahBatang);
+
+  final String label;
+  final Duration durasi;
+  final int jumlahBatang; // banyak batang histogram
+}
+
+class TitikRiwayat {
+  const TitikRiwayat({required this.waktu, required this.aqi, required this.pm25});
+
+  final DateTime waktu;
+  final int? aqi;
+  final double? pm25;
+}
