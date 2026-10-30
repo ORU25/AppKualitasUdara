@@ -79,12 +79,24 @@ class RepositoriUdaraOpenMeteo implements RepositoriUdara {
     Kota kota,
     RentangRiwayat rentang,
   ) async {
-    final int hari = rentang.durasi.inDays.ceil();
+    // "Sekarang" dalam WITA (UTC+8), bukan zona perangkat user.
+    // Kaltim selalu WITA, jadi offset tetap +8.
+    const Duration wita = Duration(hours: 8);
+    final DateTime sekarangWita =
+        DateTime.now().toUtc().add(wita);
+    final DateTime mulaiWita = sekarangWita.subtract(rentang.durasi);
+
+    // Minta 1 hari ekstra di awal agar ada cadangan jam bila server
+    // membulatkan ke bawah (mis. mulai 23:00 hari sebelumnya).
+    final DateTime mintaMulai = mulaiWita.subtract(const Duration(days: 1));
+
     final Map<String, dynamic> json = await _layanan.ambilHistori(
       lintang: kota.lintang,
       bujur: kota.bujur,
-      hariKeBelakang: hari,
+      mulai: mintaMulai,
+      selesai: sekarangWita,
     );
+
     if (json case {
       'hourly': {
         'time': final List<dynamic> jam,
@@ -95,13 +107,23 @@ class RepositoriUdaraOpenMeteo implements RepositoriUdara {
       if (aqi.length != jam.length || pm.length != jam.length) {
         throw const FormatException('Panjang data histori tidak sama');
       }
-      final DateTime batas = DateTime.now().subtract(rentang.durasi);
       final List<TitikRiwayat> hasil = [];
       for (int i = 0; i < jam.length; i++) {
-        final DateTime w = DateTime.parse(jam[i] as String);
-        if (w.isBefore(batas)) continue;
+        // Parse lalu ubah ke WITA dengan offset tetap +8.
+        // Server mengirim timezone "auto" (WITA), tapi DateTime.parse
+        // menganggapnya local device — kita normalisasi dulu.
+        final DateTime mentah = DateTime.parse(jam[i] as String);
+        final DateTime w = DateTime.utc(
+          mentah.year,
+          mentah.month,
+          mentah.day,
+          mentah.hour,
+          mentah.minute,
+        ).add(wita); // sekarang w adalah jam WITA yang benar
+        if (w.isBefore(mulaiWita)) continue;
+        if (w.isAfter(sekarangWita)) continue;
         hasil.add(TitikRiwayat(
-          waktu: w,
+          waktu: w.toLocal(), // tampilkan di zona perangkat
           aqi: (aqi[i] as num?)?.round(),
           pm25: (pm[i] as num?)?.toDouble(),
         ));

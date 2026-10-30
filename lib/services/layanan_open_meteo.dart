@@ -72,14 +72,19 @@ class LayananOpenMeteo {
   Future<Map<String, dynamic>> ambilHistori({
     required double lintang,
     required double bujur,
-    required int hariKeBelakang,
+    required DateTime mulai,
+    required DateTime selesai,
   }) async {
+    String tgl(DateTime d) =>
+        '${d.year.toString().padLeft(4, '0')}-'
+        '${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}';
     final Object? json = await _ambil({
       'latitude': '$lintang',
       'longitude': '$bujur',
       'hourly': 'us_aqi,pm2_5',
-      'past_days': '$hariKeBelakang',
-      'forecast_days': '0', // hanya histori, tanpa prakiraan
+      'start_date': tgl(mulai),
+      'end_date': tgl(selesai),
       'timezone': 'auto',
     });
     return switch (json) {
