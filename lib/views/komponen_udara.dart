@@ -444,18 +444,18 @@ class DaftarPolutan extends StatelessWidget {
         for (int i = 0; i < semua.length; i += 2)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final Polutan p in [semua[i], semua[i + 1]]) ...[
-                    if (p != semua[i]) const SizedBox(width: 8),
-                    Expanded(
-                      child: KotakPolutan(polutan: p, kadar: saatIni.kadar[p]!),
-                    ),
-                  ],
+            // Menggunakan Row + CrossAxisAlignment.start (bukan IntrinsicHeight)
+            // untuk menghindari bug 1 pixel overflow.
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final Polutan p in [semua[i], semua[i + 1]]) ...[
+                  if (p != semua[i]) const SizedBox(width: 8),
+                  Expanded(
+                    child: KotakPolutan(polutan: p, kadar: saatIni.kadar[p]!),
+                  ),
                 ],
-              ),
+              ],
             ),
           ),
       ],
@@ -494,6 +494,7 @@ class KotakPolutan extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
+            mainAxisSize: MainAxisSize.min, // Wajib agar tidak overflow
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -538,15 +539,23 @@ class KotakPolutan extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              if (rasio != null)
-                Text(
-                  rasio < 1
-                      ? 'Di bawah pedoman WHO'
-                      : '${angka(rasio)}× pedoman WHO',
-                  style: gayaTeks.bodySmall?.copyWith(
-                    color: rasio < 1 ? warna.onSurfaceVariant : warna.error,
-                  ),
-                ),
+              // Kunci tinggi area bawah agar kiri & kanan sejajar rata
+              SizedBox(
+                height: 16,
+                child: rasio == null
+                    ? const SizedBox.shrink()
+                    : Text(
+                        rasio < 1
+                            ? 'Di bawah pedoman WHO'
+                            : '${angka(rasio)}× pedoman WHO',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: gayaTeks.bodySmall?.copyWith(
+                          color:
+                              rasio < 1 ? warna.onSurfaceVariant : warna.error,
+                        ),
+                      ),
+              ),
             ],
           ),
         ),
@@ -860,17 +869,13 @@ class _RiwayatTelemetriState extends State<RiwayatTelemetri> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Pemilih rentang.
-                // Pemilih rentang: lebar tiap segmen dipaksa sama.
+        // Pemilih rentang: lebar tiap segmen dipaksa sama.
         SizedBox(
           width: double.infinity,
           child: SegmentedButton<RentangRiwayat>(
-            showSelectedIcon: false, // hilangkan ikon centang (penyebab lebar beda)
+            showSelectedIcon: false,
             style: ButtonStyle(
-              // Lebar minimum seragam, teks di tengah.
-              minimumSize: WidgetStateProperty.all(
-                const Size(0, 40),
-              ),
+              minimumSize: WidgetStateProperty.all(const Size(0, 40)),
               padding: WidgetStateProperty.all(
                 const EdgeInsets.symmetric(horizontal: 4),
               ),
@@ -880,7 +885,6 @@ class _RiwayatTelemetriState extends State<RiwayatTelemetri> {
                 ButtonSegment<RentangRiwayat>(
                   value: r,
                   label: SizedBox(
-                    // Lebar tetap per label -> ketiga segmen identik.
                     width: 64,
                     child: Text(r.label, textAlign: TextAlign.center),
                   ),
@@ -965,15 +969,13 @@ class _RiwayatTelemetriState extends State<RiwayatTelemetri> {
                     ukuran.maxWidth,
                     data.length,
                   ),
-                  onHorizontalDragEnd: (_) =>
-                      setState(() => _sorot = null),
-                  onTapUp: (_) =>
-                      Future<void>.delayed(
-                        const Duration(seconds: 3),
-                        () {
-                          if (mounted) setState(() => _sorot = null);
-                        },
-                      ),
+                  onHorizontalDragEnd: (_) => setState(() => _sorot = null),
+                  onTapUp: (_) => Future<void>.delayed(
+                    const Duration(seconds: 3),
+                    () {
+                      if (mounted) setState(() => _sorot = null);
+                    },
+                  ),
                   child: CustomPaint(
                     painter: _PelukisGaris(
                       data: data,

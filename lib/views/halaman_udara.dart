@@ -7,6 +7,7 @@ import 'package:app_kualitas_udara/repositories/repositori_udara.dart';
 import 'package:app_kualitas_udara/models/udara.dart';
 import 'package:app_kualitas_udara/viewmodels/udara_viewmodel.dart';
 import 'package:app_kualitas_udara/views/komponen_udara.dart';
+import 'package:app_kualitas_udara/views/peta_kaltim.dart';
 
 class AplikasiUdara extends StatelessWidget {
   const AplikasiUdara({super.key});
@@ -179,7 +180,7 @@ class IsiUdara extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       children: [
-                KartuIndeks(udara: udara, diperbarui: diperbarui),
+        KartuIndeks(udara: udara, diperbarui: diperbarui),
         judul('24 jam ke depan'),
         GrafikPerJam(perJam: udara.perJam),
         const SizedBox(height: 16),
@@ -193,6 +194,13 @@ class IsiUdara extends StatelessWidget {
           'Fluktuasi AQI 24 jam hingga 7 hari terakhir.',
         ),
         const RiwayatTelemetri(),
+
+        // ---- PETA (baru) ----
+        judul(
+          'Peta Se-Kalimantan Timur',
+          'Ketuk titik untuk melihat detail wilayah. Warna = kategori AQI.',
+        ),
+        PetaKaltim(peringkat: peringkat, terpilih: udara.kota),
 
         judul(
           'Se-Kalimantan Timur',
