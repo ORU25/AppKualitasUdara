@@ -51,94 +51,198 @@ class KartuIndeks extends StatelessWidget {
     final UdaraSaatIni saatIni = udara.saatIni;
     final Kategori kategori = saatIni.kategori;
     final Polutan? utama = saatIni.utama;
+    final Color aksen = kategori.warna;
+    final bool gelap = Theme.of(context).brightness == Brightness.dark;
+    // Kuning/jingga terlalu pucat sebagai teks di tema terang: digelapkan.
+    final Color warnaAngka = gelap ? aksen : Color.lerp(aksen, Colors.black, 0.4)!;
     final TextStyle? gayaRedup = gayaTeks.bodySmall?.copyWith(
       color: warna.onSurfaceVariant,
     );
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: warna.surfaceContainer,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(udara.kota.nama, style: gayaTeks.titleLarge),
-          Text(udara.kota.keterangan, style: gayaRedup),
-          const SizedBox(height: 4),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                '${saatIni.aqi}',
-                semanticsLabel: 'Indeks kualitas udara ${saatIni.aqi}',
-                style: gayaTeks.displayLarge?.copyWith(
-                  fontWeight: FontWeight.w500,
-                  fontFeatures: angkaTabular,
-                  height: 1.1,
-                ),
+    // Bagian kiri: wilayah, angka AQI, kategori, waktu data.
+    final Widget kiri = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.location_on_outlined,
+              size: 20,
+              color: warna.onSurfaceVariant,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    udara.kota.nama,
+                    style: gayaTeks.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(udara.kota.keterangan, style: gayaRedup),
+                ],
               ),
-              const SizedBox(width: 8),
-              Text(
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            // Angka berhitung naik saat data baru masuk.
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: saatIni.aqi.toDouble()),
+              duration: const Duration(milliseconds: 700),
+              curve: Curves.easeOutCubic,
+              builder: (BuildContext context, double nilai, Widget? anak) {
+                return Text(
+                  '${nilai.round()}',
+                  semanticsLabel: 'Indeks kualitas udara ${saatIni.aqi}',
+                  style: gayaTeks.displayLarge?.copyWith(
+                    fontSize: 88,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -2,
+                    color: warnaAngka,
+                    fontFeatures: angkaTabular,
+                    height: 1,
+                  ),
+                );
+              },
+            ),
+            const SizedBox(width: 10),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text(
                 'US AQI',
                 style: gayaTeks.titleSmall?.copyWith(
                   color: warna.onSurfaceVariant,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: kategori.warna,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  kategori.label,
-                  style: gayaTeks.labelLarge?.copyWith(
-                    color: teksDiAtas(kategori.warna),
-                  ),
-                ),
+            ),
+            const Spacer(),
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: aksen.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
               ),
-              if (utama != null)
-                Text(
-                  'Polutan utama: ${utama.simbol}',
-                  style: gayaTeks.bodyMedium,
-                ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          SkalaAqi(aqi: saatIni.aqi),
-          const SizedBox(height: 20),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
+              child: Icon(
                 kategori.ikon,
-                size: 20,
-                color: warna.onSurfaceVariant,
+                size: 30,
+                color: warna.onSurface,
                 semanticLabel: kategori.label,
               ),
-              const SizedBox(width: 10),
-              Expanded(child: Text(kategori.saran, style: gayaTeks.bodyMedium)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: ShapeDecoration(
+            color: aksen,
+            shape: const StadiumBorder(),
+          ),
+          child: Text(
+            kategori.label,
+            style: gayaTeks.labelLarge?.copyWith(
+              color: teksDiAtas(aksen),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Data pukul ${jamMenit(saatIni.waktu)} WITA · diperbarui '
+          '${jamMenit(diperbarui)}',
+          style: gayaRedup,
+        ),
+      ],
+    );
+
+    // Bagian kanan: skala AQI dan saran kesehatan.
+    final Widget kanan = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SkalaAqi(aqi: saatIni.aqi),
+        const SizedBox(height: 20),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: warna.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (utama != null) ...[
+                Text(
+                  'Polutan utama: ${utama.simbol}',
+                  style: gayaTeks.titleSmall,
+                ),
+                const SizedBox(height: 6),
+              ],
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.tips_and_updates_outlined,
+                    size: 18,
+                    color: warna.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(kategori.saran, style: gayaTeks.bodyMedium),
+                  ),
+                ],
+              ),
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Data pukul ${jamMenit(saatIni.waktu)} WITA · diperbarui '
-            '${jamMenit(diperbarui)}',
-            style: gayaRedup,
+        ),
+      ],
+    );
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: warna.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: warna.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Garis aksen tipis berwarna kategori AQI.
+          Container(height: 5, color: aksen),
+          Padding(
+            padding: const EdgeInsets.all(22),
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints ukuran) {
+                // Layar lebar: dua kolom. Layar sempit: ditumpuk.
+                if (ukuran.maxWidth >= 720) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(flex: 2, child: kiri),
+                      Container(
+                        width: 1,
+                        height: 200,
+                        margin: const EdgeInsets.symmetric(horizontal: 28),
+                        color: warna.outlineVariant,
+                      ),
+                      Expanded(flex: 3, child: kanan),
+                    ],
+                  );
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [kiri, const SizedBox(height: 22), kanan],
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -185,7 +289,7 @@ class SkalaAqi extends StatelessWidget {
                       left: 0,
                       right: 0,
                       top: 6,
-                      height: 6,
+                      height: 8,
                       child: Row(
                         children: [
                           for (final Kategori k in Kategori.values)
@@ -196,7 +300,7 @@ class SkalaAqi extends StatelessWidget {
                                 ),
                                 decoration: BoxDecoration(
                                   color: k.warna,
-                                  borderRadius: BorderRadius.circular(3),
+                                  borderRadius: BorderRadius.circular(4),
                                 ),
                               ),
                             ),
@@ -213,8 +317,8 @@ class SkalaAqi extends StatelessWidget {
                           color: warna.onSurface,
                           borderRadius: BorderRadius.circular(2),
                           border: Border.all(
-                            color: warna.surfaceContainer,
-                            width: 1,
+                            color: warna.surface,
+                            width: 1.5,
                           ),
                         ),
                       ),
@@ -284,85 +388,106 @@ class GrafikPerJam extends StatelessWidget {
       fontFeatures: angkaTabular,
     );
 
-    Widget baris(IconData ikon, String teks) => Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+    Widget baris(IconData ikon, String teks, Color aksen) => Padding(
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(ikon, size: 18, color: warna.onSurfaceVariant),
-          const SizedBox(width: 8),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: aksen.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(ikon, size: 18, color: warna.onSurface),
+          ),
+          const SizedBox(width: 12),
           Expanded(child: Text(teks, style: gayaTeks.bodyMedium)),
         ],
       ),
     );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        baris(
-          Icons.trending_up,
-          'Puncak ${puncak.aqi} pukul ${jamMenit(puncak.jam)} '
-          '(${Kategori.dariAqi(puncak.aqi!).label.toLowerCase()})',
-        ),
-        baris(Icons.show_chart, 'Rata-rata $rataRata'),
-        // Hanya disarankan jika udaranya memang layak (Baik/Sedang).
-        if (terbaik != null && terbaik.aqi! <= 100)
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: warna.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           baris(
-            Icons.directions_walk,
-            'Waktu terbaik di luar ruangan: pukul ${jamMenit(terbaik.jam)} '
-            '(AQI ${terbaik.aqi})',
-          )
-        else if (terbaik != null)
-          baris(
-            Icons.warning_amber,
-            'Tidak ada jam siang yang layak untuk aktivitas luar. '
-            'Terendah pukul ${jamMenit(terbaik.jam)} (AQI ${terbaik.aqi}).',
+            Icons.trending_up,
+            'Puncak ${puncak.aqi} pukul ${jamMenit(puncak.jam)} '
+            '(${Kategori.dariAqi(puncak.aqi!).label.toLowerCase()})',
+            Kategori.dariAqi(puncak.aqi!).warna,
           ),
-        const SizedBox(height: 10),
-        ExcludeSemantics(
-          child: SizedBox(
-            height: 96,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                for (final PrakiraanJam p in perJam)
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 1.5),
-                      child: FractionallySizedBox(
-                        heightFactor: p.aqi == null
-                            ? 0.03
-                            : (p.aqi! / skala).clamp(0.03, 1.0),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: p.aqi == null
-                                ? warna.outlineVariant
-                                : Kategori.dariAqi(p.aqi!).warna,
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(3),
+          baris(
+            Icons.show_chart,
+            'Rata-rata $rataRata',
+            Kategori.dariAqi(rataRata).warna,
+          ),
+          // Hanya disarankan jika udaranya memang layak (Baik/Sedang).
+          if (terbaik != null && terbaik.aqi! <= 100)
+            baris(
+              Icons.directions_walk,
+              'Waktu terbaik di luar ruangan: pukul ${jamMenit(terbaik.jam)} '
+              '(AQI ${terbaik.aqi})',
+              Kategori.dariAqi(terbaik.aqi!).warna,
+            )
+          else if (terbaik != null)
+            baris(
+              Icons.warning_amber,
+              'Tidak ada jam siang yang layak untuk aktivitas luar. '
+              'Terendah pukul ${jamMenit(terbaik.jam)} (AQI ${terbaik.aqi}).',
+              Kategori.dariAqi(terbaik.aqi!).warna,
+            ),
+          const SizedBox(height: 8),
+          ExcludeSemantics(
+            child: SizedBox(
+              height: 110,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  for (final PrakiraanJam p in perJam)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 1.5),
+                        child: FractionallySizedBox(
+                          heightFactor: p.aqi == null
+                              ? 0.03
+                              : (p.aqi! / skala).clamp(0.03, 1.0),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: p.aqi == null
+                                  ? warna.outlineVariant
+                                  : Kategori.dariAqi(p.aqi!).warna,
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(4),
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
-        Divider(height: 1, color: warna.outlineVariant),
-        const SizedBox(height: 6),
-        // Label setiap 6 jam, sejajar dengan batang pertamanya.
-        Row(
-          children: [
-            for (int i = 0; i < perJam.length; i += 6)
-              Expanded(
-                flex: perJam.length - i < 6 ? perJam.length - i : 6,
-                child: Text(jamMenit(perJam[i].jam), style: gayaLabel),
-              ),
-          ],
-        ),
-      ],
+          Divider(height: 1, color: warna.outlineVariant),
+          const SizedBox(height: 6),
+          // Label setiap 6 jam, sejajar dengan batang pertamanya.
+          Row(
+            children: [
+              for (int i = 0; i < perJam.length; i += 6)
+                Expanded(
+                  flex: perJam.length - i < 6 ? perJam.length - i : 6,
+                  child: Text(jamMenit(perJam[i].jam), style: gayaLabel),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -385,46 +510,125 @@ class KartuUv extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        border: Border.all(color: warna.outlineVariant),
-        borderRadius: BorderRadius.circular(14),
+        color: warna.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.wb_sunny_outlined, color: warna.onSurfaceVariant),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Indeks UV', style: gayaTeks.titleSmall),
-                Text(
-                  saatIni == null
-                      ? 'Sekarang: –'
-                      : 'Sekarang ${angka(saatIni)} (${labelUv(saatIni!)})',
-                  style: gayaTeks.bodyMedium,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0B100).withValues(alpha: 0.22),
+                  shape: BoxShape.circle,
                 ),
-                if (puncak != null) ...[
-                  Text(
-                    'Puncak ${angka(puncak.uv)} (${labelUv(puncak.uv!)}) '
-                    'pukul ${jamMenit(puncak.jam)}',
-                    style: gayaTeks.bodyMedium,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    puncak.uv!.round() >= 3
-                        ? 'Saat matahari tinggi, pakai tabir surya, topi, '
-                              'dan kacamata hitam.'
-                        : 'Tidak perlu perlindungan khusus.',
-                    style: gayaTeks.bodySmall?.copyWith(
-                      color: warna.onSurfaceVariant,
+                child: Icon(Icons.wb_sunny_outlined, color: warna.onSurface),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Indeks UV', style: gayaTeks.titleSmall),
+                    Text(
+                      saatIni == null
+                          ? 'Sekarang: –'
+                          : 'Sekarang ${angka(saatIni)} (${labelUv(saatIni!)})',
+                      style: gayaTeks.bodyMedium,
+                    ),
+                    if (puncak != null)
+                      Text(
+                        'Puncak ${angka(puncak.uv)} (${labelUv(puncak.uv!)}) '
+                        'pukul ${jamMenit(puncak.jam)}',
+                        style: gayaTeks.bodyMedium,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (saatIni != null) ...[
+            const SizedBox(height: 14),
+            _SkalaUv(uv: saatIni!),
+          ],
+          if (puncak != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              puncak.uv!.round() >= 3
+                  ? 'Saat matahari tinggi, pakai tabir surya, topi, '
+                        'dan kacamata hitam.'
+                  : 'Tidak perlu perlindungan khusus.',
+              style: gayaTeks.bodySmall?.copyWith(
+                color: warna.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// Skala UV 0–11+ dan penanda posisi nilai sekarang.
+class _SkalaUv extends StatelessWidget {
+  const _SkalaUv({required this.uv});
+
+  final double uv;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme warna = Theme.of(context).colorScheme;
+
+    return ExcludeSemantics(
+      child: SizedBox(
+        height: 16,
+        child: LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints ukuran) {
+            final double x = (uv / 11).clamp(0.0, 1.0) * ukuran.maxWidth;
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 5,
+                  height: 6,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(3),
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFF2E9E5B),
+                          Color(0xFFE0B100),
+                          Color(0xFFE5732B),
+                          Color(0xFFD13F3F),
+                          Color(0xFF8B4BA6),
+                        ],
+                      ),
                     ),
                   ),
-                ],
+                ),
+                Positioned(
+                  left: x - 2,
+                  top: 0,
+                  width: 4,
+                  height: 16,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: warna.onSurface,
+                      borderRadius: BorderRadius.circular(2),
+                      border: Border.all(color: warna.surfaceContainerLow),
+                    ),
+                  ),
+                ),
               ],
-            ),
-          ),
-        ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -480,8 +684,9 @@ class KotakPolutan extends StatelessWidget {
         ? null
         : kadar.nilai! / polutan.batasWho;
 
-    return Card.outlined(
-      margin: EdgeInsets.zero,
+    return Material(
+      color: warna.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(18),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => showModalBottomSheet<void>(
@@ -498,34 +703,58 @@ class KotakPolutan extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Text(polutan.simbol, style: gayaTeks.titleSmall),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          polutan.simbol,
+                          style: gayaTeks.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          polutan.nama,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: gayaTeks.bodySmall?.copyWith(
+                            color: warna.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   if (kategori != null)
                     Container(
-                      width: 10,
-                      height: 10,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: kategori.warna,
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${kadar.aqi}',
+                        style: gayaTeks.labelMedium?.copyWith(
+                          color: teksDiAtas(kategori.warna),
+                          fontWeight: FontWeight.w600,
+                          fontFeatures: angkaTabular,
+                        ),
                       ),
                     ),
                 ],
               ),
-              Text(
-                polutan.nama,
-                style: gayaTeks.bodySmall?.copyWith(
-                  color: warna.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Text.rich(
                 TextSpan(
                   children: [
                     TextSpan(
                       text: angka(kadar.nilai),
                       style: gayaTeks.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
                         fontFeatures: angkaTabular,
                       ),
                     ),
@@ -538,7 +767,55 @@ class KotakPolutan extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
+              // Batang: kadar dibanding pedoman WHO. Garis tengah = 1× WHO.
+              ExcludeSemantics(
+                child: SizedBox(
+                  height: 8,
+                  child: LayoutBuilder(
+                    builder: (BuildContext context, BoxConstraints ukuran) {
+                      final double isi = rasio == null
+                          ? 0
+                          : (rasio / 2).clamp(0.0, 1.0) * ukuran.maxWidth;
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: warna.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            left: 0,
+                            top: 0,
+                            bottom: 0,
+                            width: isi,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: (rasio ?? 0) < 1
+                                    ? warna.primary
+                                    : warna.error,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            left: ukuran.maxWidth / 2 - 0.75,
+                            top: -2,
+                            bottom: -2,
+                            width: 1.5,
+                            child: ColoredBox(color: warna.onSurface),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
               // Kunci tinggi area bawah agar kiri & kanan sejajar rata
               SizedBox(
                 height: 16,
@@ -607,9 +884,35 @@ class DetailPolutan extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${polutan.simbol} · ${polutan.nama}',
-              style: gayaTeks.titleLarge,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${polutan.simbol} · ${polutan.nama}',
+                    style: gayaTeks.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (kadar.aqi != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: ShapeDecoration(
+                      color: Kategori.dariAqi(kadar.aqi!).warna,
+                      shape: const StadiumBorder(),
+                    ),
+                    child: Text(
+                      'AQI ${kadar.aqi}',
+                      style: gayaTeks.labelLarge?.copyWith(
+                        color: teksDiAtas(Kategori.dariAqi(kadar.aqi!).warna),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 12),
             fakta('Kadar sekarang', '${angka(kadar.nilai)} μg/m³'),
@@ -656,60 +959,87 @@ class PeringkatKaltim extends StatelessWidget {
     final ColorScheme warna = Theme.of(context).colorScheme;
     final TextTheme gayaTeks = Theme.of(context).textTheme;
 
-    return Column(
-      children: [
-        for (int i = 0; i < peringkat.length; i++)
-          Builder(
-            builder: (BuildContext context) {
-              final RingkasanKota r = peringkat[i];
-              final Kategori? kategori = r.aqi == null
-                  ? null
-                  : Kategori.dariAqi(r.aqi!);
-              return ListTile(
-                dense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                selected: r.kota == terpilih,
-                selectedColor: warna.onSurface,
-                selectedTileColor: warna.surfaceContainer,
-                leading: SizedBox(
-                  width: 20,
-                  child: Text(
-                    '${i + 1}',
-                    style: gayaTeks.labelLarge?.copyWith(
-                      color: warna.onSurfaceVariant,
-                      fontFeatures: angkaTabular,
+    return Material(
+      color: warna.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (int i = 0; i < peringkat.length; i++)
+            Builder(
+              builder: (BuildContext context) {
+                final RingkasanKota r = peringkat[i];
+                final Kategori? kategori = r.aqi == null
+                    ? null
+                    : Kategori.dariAqi(r.aqi!);
+                final bool tiga = i < 3 && r.aqi != null;
+                return Column(
+                  children: [
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
+                      selected: r.kota == terpilih,
+                      selectedColor: warna.onSurface,
+                      selectedTileColor: warna.secondaryContainer,
+                      leading: Container(
+                        width: 28,
+                        height: 28,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: tiga
+                              ? warna.primaryContainer
+                              : Colors.transparent,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '${i + 1}',
+                          style: gayaTeks.labelLarge?.copyWith(
+                            color: tiga
+                                ? warna.onPrimaryContainer
+                                : warna.onSurfaceVariant,
+                            fontFeatures: angkaTabular,
+                          ),
+                        ),
+                      ),
+                      minLeadingWidth: 28,
+                      title: Text(r.kota.nama, style: gayaTeks.bodyLarge),
+                      subtitle: Text(kategori?.label ?? 'Data tidak tersedia'),
+                      trailing: Container(
+                        width: 52,
+                        padding: const EdgeInsets.symmetric(vertical: 5),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: kategori?.warna ?? warna.outlineVariant,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          r.aqi?.toString() ?? '–',
+                          style: gayaTeks.labelLarge?.copyWith(
+                            color: kategori == null
+                                ? warna.onSurface
+                                : teksDiAtas(kategori.warna),
+                            fontWeight: FontWeight.w600,
+                            fontFeatures: angkaTabular,
+                          ),
+                        ),
+                      ),
+                      onTap: () =>
+                          context.read<UdaraViewModel>().pilihKota(r.kota),
                     ),
-                  ),
-                ),
-                minLeadingWidth: 20,
-                title: Text(r.kota.nama, style: gayaTeks.bodyLarge),
-                subtitle: Text(kategori?.label ?? 'Data tidak tersedia'),
-                trailing: Container(
-                  width: 48,
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: kategori?.warna ?? warna.outlineVariant,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    r.aqi?.toString() ?? '–',
-                    style: gayaTeks.labelLarge?.copyWith(
-                      color: kategori == null
-                          ? warna.onSurface
-                          : teksDiAtas(kategori.warna),
-                      fontFeatures: angkaTabular,
-                    ),
-                  ),
-                ),
-                onTap: () => context.read<UdaraViewModel>().pilihKota(r.kota),
-              );
-            },
-          ),
-      ],
+                    if (i < peringkat.length - 1)
+                      Divider(
+                        height: 1,
+                        indent: 16,
+                        endIndent: 16,
+                        color: warna.outlineVariant.withValues(alpha: 0.5),
+                      ),
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
     );
   }
 }
@@ -722,64 +1052,75 @@ class ArtiKategori extends StatelessWidget {
     final ColorScheme warna = Theme.of(context).colorScheme;
     final TextTheme gayaTeks = Theme.of(context).textTheme;
 
-    return ExpansionTile(
-      tilePadding: EdgeInsets.zero,
-      childrenPadding: const EdgeInsets.only(bottom: 8),
-      shape: const Border(),
-      collapsedShape: const Border(),
-      title: Text('Cara membaca AQI', style: gayaTeks.titleMedium),
-      children: [
-        Text(
-          'US AQI meringkas kadar enam polutan menjadi satu angka 0–500. '
-          'Setiap polutan punya sub-indeks sendiri, dan angka akhirnya '
-          'mengikuti sub-indeks tertinggi (polutan utama). Makin tinggi '
-          'angkanya, makin buruk udaranya.',
-          style: gayaTeks.bodyMedium,
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: warna.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        shape: const Border(),
+        collapsedShape: const Border(),
+        leading: Icon(Icons.help_outline, color: warna.onSurfaceVariant),
+        title: Text(
+          'Cara membaca AQI',
+          style: gayaTeks.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
-        const SizedBox(height: 12),
-        for (final Kategori k in Kategori.values)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 14,
-                  height: 14,
-                  margin: const EdgeInsets.only(top: 3),
-                  decoration: BoxDecoration(
-                    color: k.warna,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 64,
-                  child: Text(
-                    k.rentang,
-                    style: gayaTeks.bodyMedium?.copyWith(
-                      fontFeatures: angkaTabular,
+        children: [
+          Text(
+            'US AQI meringkas kadar enam polutan menjadi satu angka 0–500. '
+            'Setiap polutan punya sub-indeks sendiri, dan angka akhirnya '
+            'mengikuti sub-indeks tertinggi (polutan utama). Makin tinggi '
+            'angkanya, makin buruk udaranya.',
+            style: gayaTeks.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+          for (final Kategori k in Kategori.values)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 14,
+                    height: 14,
+                    margin: const EdgeInsets.only(top: 3),
+                    decoration: BoxDecoration(
+                      color: k.warna,
+                      borderRadius: BorderRadius.circular(4),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(k.label, style: gayaTeks.bodyMedium),
-                      Text(
-                        k.saran,
-                        style: gayaTeks.bodySmall?.copyWith(
-                          color: warna.onSurfaceVariant,
-                        ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 64,
+                    child: Text(
+                      k.rentang,
+                      style: gayaTeks.bodyMedium?.copyWith(
+                        fontFeatures: angkaTabular,
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(k.label, style: gayaTeks.bodyMedium),
+                        Text(
+                          k.saran,
+                          style: gayaTeks.bodySmall?.copyWith(
+                            color: warna.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -830,32 +1171,55 @@ class _RiwayatTelemetriState extends State<RiwayatTelemetri> {
       String label,
       String nilai,
       String ket,
-      Color warnaTeks,
+      Color warnaTitik,
     ) {
       return Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: gayaTeks.labelSmall?.copyWith(
-                color: warna.onSurfaceVariant,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: warna.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: gayaTeks.labelSmall?.copyWith(
+                  color: warna.onSurfaceVariant,
+                ),
               ),
-            ),
-            Text(
-              nilai,
-              style: gayaTeks.titleMedium?.copyWith(
-                color: warnaTeks,
-                fontFeatures: angkaTabular,
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: warnaTitik,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    nilai,
+                    style: gayaTeks.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontFeatures: angkaTabular,
+                    ),
+                  ),
+                ],
               ),
-            ),
-            Text(
-              ket,
-              style: gayaTeks.labelSmall?.copyWith(
-                color: warna.onSurfaceVariant,
+              Text(
+                ket,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: gayaTeks.labelSmall?.copyWith(
+                  color: warna.onSurfaceVariant,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
@@ -913,6 +1277,7 @@ class _RiwayatTelemetriState extends State<RiwayatTelemetri> {
         else ...[
           // Kartu statistik terendah / rata-rata / tertinggi.
           Row(
+            spacing: 8,
             children: [
               kartuStatistik(
                 'Terendah',
@@ -936,6 +1301,16 @@ class _RiwayatTelemetriState extends State<RiwayatTelemetri> {
           ),
           const SizedBox(height: 16),
 
+          // Grafik dan tooltipnya dikelompokkan dalam satu panel.
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: warna.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
           // Tooltip di atas grafik saat ada titik disorot.
           SizedBox(
             height: 52,
@@ -1014,7 +1389,10 @@ class _RiwayatTelemetriState extends State<RiwayatTelemetri> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
           Text(
             'Ketuk atau geser di atas grafik untuk melihat detail per jam. '
             'Riwayat dari model CAMS (Open-Meteo), bukan pengukuran sensor.',

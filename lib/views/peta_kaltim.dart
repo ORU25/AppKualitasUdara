@@ -26,12 +26,12 @@ class PetaKaltim extends StatelessWidget {
     final TextTheme gayaTeks = Theme.of(context).textTheme;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
-        height: 320,
+        height: 340,
         decoration: BoxDecoration(
           border: Border.all(color: warna.outlineVariant),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Stack(
           children: [
@@ -102,8 +102,8 @@ class PetaKaltim extends StatelessWidget {
 
     return Marker(
       point: LatLng(r.kota.lintang, r.kota.bujur),
-      width: dipilih ? 48 : 40,
-      height: dipilih ? 48 : 40,
+      width: dipilih ? 52 : 40,
+      height: dipilih ? 52 : 40,
       child: GestureDetector(
         onTap: () => context.read<UdaraViewModel>().pilihKota(r.kota),
         child: Tooltip(
@@ -117,7 +117,7 @@ class PetaKaltim extends StatelessWidget {
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: dipilih ? Colors.white : Colors.white70,
-                  width: dipilih ? 3 : 2,
+                  width: dipilih ? 4 : 2,
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -161,7 +161,7 @@ class _Legenda extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: warna.surface.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: warna.outlineVariant),
       ),
       child: Row(
