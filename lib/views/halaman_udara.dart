@@ -10,6 +10,7 @@ import 'package:app_kualitas_udara/models/udara.dart';
 import 'package:app_kualitas_udara/viewmodels/udara_viewmodel.dart';
 import 'package:app_kualitas_udara/views/komponen_udara.dart';
 import 'package:app_kualitas_udara/views/peta_kaltim.dart';
+   import 'package:app_kualitas_udara/views/kartu_aktivitas.dart';
 
 // Jarak kiri-kanan isi halaman: isi dibatasi ±1200 px di layar sangat lebar, dan header, chip wilayah, serta isi memakai jarak yang sama agar sejajar.
 double sisiHalaman(double lebar) {
@@ -351,6 +352,12 @@ class IsiUdara extends StatelessWidget {
             GrafikPerJam(perJam: udara.perJam),
             const SizedBox(height: 12),
             KartuUv(saatIni: udara.saatIni.uv, perJam: udara.perJam),
+            judul(
+              Icons.directions_run,
+              'Aktivitas hari ini',
+              'Saran berdasarkan AQI dan indeks UV saat ini.',
+            ),
+            KartuAktivitas(saatIni: udara.saatIni),
             judul(
               Icons.blur_on,
               'Polutan',
